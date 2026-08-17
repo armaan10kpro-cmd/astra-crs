@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# C / eBPF build artifacts
+*.o
+*.bpf.o
+targets/demo_app/demo_vuln
+runtime/ebpf/astra_loader
+
+# Node
+dashboard/node_modules/
+dashboard/dist/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Runtime-generated evidence
+reports/
+
+# Editors / temporary files
+*.swp
+*.swo
+*.tmp
+*~
+
+# Backup files
+*.backup
+*.bak

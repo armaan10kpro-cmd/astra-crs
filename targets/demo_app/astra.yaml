@@ -1,0 +1,8 @@
+name: demo_app
+language: c
+source: demo_vuln.c
+build: clang -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined demo_vuln.c -o demo_vuln
+binary: demo_vuln
+entrypoint: parse_message
+tests: bash tests/regression.sh
+fuzzer: auto

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.o
+*.bpf.o
+targets/demo_app/demo_vuln
+reports/
+!.gitkeep
+dashboard/node_modules/
+dashboard/dist/
+.pytest_cache/
