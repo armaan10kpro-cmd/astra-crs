@@ -245,62 +245,79 @@ export function normalizeSnapshot(input: unknown): AstraSnapshot {
         : undefined,
 }
   const verification: Record<string, EvidenceState> = {
-    securityProperty: {
-      status:
-        typeof symbolic?.status === 'string'
-          ? symbolic.status
-          : undefined,
-      detail:
-        typeof symbolic?.property === 'string'
-          ? symbolic.property
-          : undefined,
-    },
+  securityProperty: {
+    status:
+      typeof symbolic?.status === 'string'
+        ? symbolic.status
+        : undefined,
 
-    z3: {
-      status:
-        typeof symbolic?.result === 'string'
-          ? symbolic.result
-          : undefined,
-      detail:
-        typeof symbolic?.engine === 'string'
-          ? symbolic.engine
-          : undefined,
-    },
+    detail:
+      typeof symbolic?.property === 'string'
+        ? symbolic.property
+        : undefined,
+  },
 
-    adversarial: {
-      status:
-        adversarial?.pass === true
-          ? 'PASS'
-          : typeof adversarial?.status === 'string'
-            ? adversarial.status
-            : undefined,
-      detail:
-        typeof adversarial?.attacks_executed === 'number'
-          ? `${adversarial.attacks_executed} attacks executed`
-          : undefined,
-    },
+  z3: {
+    status:
+      typeof symbolic?.result === 'string'
+        ? symbolic.result
+        : undefined,
 
-    regression: {
-      status:
-        regression?.pass === true
-          ? 'PASS'
-          : typeof regression?.status === 'string'
-            ? regression.status
-            : undefined,
-      detail:
-        typeof regression?.passed === 'number' &&
-        typeof regression?.mandatory_tests === 'number'
-          ? `${regression.passed}/${regression.mandatory_tests} tests passed`
-          : undefined,
-    },
+    detail:
+      typeof symbolic?.engine === 'string'
+        ? symbolic.engine
+        : undefined,
 
-    patchJudge: {
-      status:
-        firstAttempt?.verdict === 'FIX_VERIFIED'
-          ? 'FIX_VERIFIED'
-          : finalStatus,
+    value:
+      symbolic?.properties_verified,
+  },
+
+  adversarial: {
+    status:
+      adversarial?.pass === true
+        ? 'PASS'
+        : typeof adversarial?.status === 'string'
+          ? adversarial.status
+          : undefined,
+
+    detail:
+      typeof adversarial?.attacks_executed === 'number'
+        ? `${adversarial.attacks_executed} attacks executed`
+        : undefined,
+
+    value: {
+      attacksGenerated: adversarial?.attacks_generated,
+      attacksExecuted: adversarial?.attacks_executed,
+      sanitizerFailures: adversarial?.sanitizer_failures,
+      crashes: adversarial?.crashes,
+      safeExecutions: adversarial?.successful_safe_executions,
     },
-  }
+  },
+
+  regression: {
+    status:
+      regression?.pass === true
+        ? 'PASS'
+        : typeof regression?.status === 'string'
+          ? regression.status
+          : undefined,
+
+    detail:
+      typeof regression?.passed === 'number' &&
+      typeof regression?.mandatory_tests === 'number'
+        ? `${regression.passed}/${regression.mandatory_tests} tests passed`
+        : undefined,
+
+    value: regression?.results,
+  },
+
+  patchJudge: {
+    status:
+      firstAttempt?.verdict === 'FIX_VERIFIED'
+        ? 'FIX_VERIFIED'
+        : finalStatus,
+  },
+}
 
   const runtime: Record<string, unknown> = {
     verdict:
@@ -373,63 +390,71 @@ export function normalizeSnapshot(input: unknown): AstraSnapshot {
 
   const pipeline: Record<string, BackendStatus> = {}
 
-  pipeline.DISCOVER = rawDiscovery?.status === 'confirmed'
+  pipeline.DISCOVER =
+  rawDiscovery?.status === 'confirmed'
     ? 'CONFIRMED'
     : undefined
 
-  pipeline.LOCALIZE = rawDiscovery?.localization
+pipeline.LOCALIZE =
+  rawDiscovery?.localization &&
+  typeof rawDiscovery.localization === 'object'
     ? 'CONFIRMED'
-    : rawDiscovery?.status === 'confirmed'
-      ? 'CONFIRMED'
-      : undefined
+    : undefined
 
-  pipeline.REASON =
-    attempts.length > 0
-      ? 'PASS'
-      : undefined
+pipeline.REASON =
+  attempts.length > 0 &&
+  firstAttempt?.proposal_status === 'candidate'
+    ? 'PASS'
+    : undefined
 
-  pipeline.REPAIR =
-    firstAttempt?.built === true
-      ? 'PASS'
-      : undefined
+pipeline.REPAIR =
+  firstAttempt?.built === true
+    ? 'PASS'
+    : undefined
 
-  pipeline.VERIFY =
-    firstAttempt?.checks &&
-    typeof firstAttempt.checks === 'object'
-      ? 'PASS'
-      : undefined
+pipeline.VERIFY =
+  symbolic?.status === 'PASS' &&
+  firstAttempt?.checks &&
+  typeof firstAttempt.checks === 'object'
+    ? 'PASS'
+    : undefined
 
-  pipeline.ADVERSARIAL =
-    adversarial?.pass === true
-      ? 'PASS'
-      : undefined
+pipeline.ADVERSARIAL =
+  adversarial?.pass === true
+    ? 'PASS'
+    : undefined
 
-  pipeline.REGRESSION =
-    regression?.pass === true
-      ? 'PASS'
-      : undefined
+pipeline.REGRESSION =
+  regression?.pass === true
+    ? 'PASS'
+    : undefined
 
-  pipeline.RUNTIME =
-    runtimeLayer?.attached === true
-      ? 'ATTACHED'
-      : undefined
+pipeline.RUNTIME =
+  runtimeLayer?.attached === true
+    ? 'ATTACHED'
+    : undefined
 
-  pipeline.PROOF =
-    typeof run.report_dir === 'string'
-      ? 'GENERATED'
-      : undefined
+pipeline.PROOF =
+  typeof run.report_dir === 'string'
+    ? 'GENERATED'
+    : undefined
 
   const data: AstraEvidence = {
-    target: 'demo_vuln',
+    target:
+  typeof finding?.source_file === 'string'
+    ? finding.source_file.split('/').pop()?.replace(/\.[^.]+$/, '')
+    : undefined,
 
     findingId,
 
     stage: finalStatus,
 
     elapsed:
-      typeof resources?.elapsed_seconds === 'number'
-        ? `${resources.elapsed_seconds}s`
-        : undefined,
+  typeof resources?.elapsed_seconds === 'number'
+    ? `${resources.elapsed_seconds}s`
+    : typeof rawDiscovery?.elapsed_seconds === 'number'
+      ? `${rawDiscovery.elapsed_seconds}s`
+      : undefined,
 
     patchVerdict: finalStatus,
 
