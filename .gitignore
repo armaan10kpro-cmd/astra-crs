@@ -31,3 +31,6 @@ reports/
 # Backup files
 *.backup
 *.bak
+
+# Temporary dashboard recovery files
+*.broken-backup
