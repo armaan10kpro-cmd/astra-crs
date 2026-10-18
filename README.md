@@ -2,117 +2,121 @@
 
 **Autonomous Cyber-Reasoning & Verified Repair System**
 
-> DISCOVER → LOCALIZE → REASON → REPAIR → VERIFY → ADVERSARIAL TEST → PROTECT → REPORT
+A defensive cybersecurity prototype that explores how candidate code repairs can be tested and assessed with explicit evidence, rather than trusting an AI-generated patch on its own.
 
-ASTRA-CRS is a defensive research prototype for a **controlled local laboratory**. It combines deterministic security tooling (sanitizers, property checks, adversarial testing, regression suites) with an optional LLM reasoning layer and a Linux eBPF runtime-observation module.
+**Demo:** https://astra-crs.vercel.app  
+**Repository:** https://github.com/armaan10kpro-cmd/astra-crs
 
-**The LLM is never the final authority on patch correctness.** Every accepted repair requires independent deterministic verification and produces a proof-carrying evidence bundle.
+> **DISCOVER → LOCALIZE → REASON → REPAIR → VERIFY → ADVERSARIAL TEST → PROTECT → REPORT**
+
+## Why this project
+
+AI can suggest a code fix, but a suggestion is not proof that the fix works. ASTRA-CRS separates patch generation from patch acceptance: a deterministic judge aggregates the configured checks, and the result is reported as `FIX_VERIFIED` or `REJECTED`.
+
+The project is designed for a controlled local lab using a deliberately vulnerable synthetic C target. It is a prototype and does not claim universal vulnerability coverage or a general proof of software security.
 
 ## What it does
 
-1. Builds a deliberately vulnerable synthetic C target
-2. Discovers memory-safety flaws via sanitizer-guided fuzzing (with deterministic fallback)
-3. Localizes root cause from stack traces
-4. Proposes candidate patches via Mock/Local/API model providers
-5. Verifies patches in an isolated workspace (compile, symbolic property, adversarial, regression)
-6. Judges patches deterministically → `FIX_VERIFIED` or `REJECTED`
-7. Generates proof-carrying reports under `reports/<finding_id>/`
-8. Demonstrates runtime observation via eBPF (or labelled MOCK mode)
+1. Builds and analyzes a synthetic C target in a controlled environment.
+2. Uses sanitizer-guided discovery, with a deterministic fallback when optional fuzzing tools are unavailable.
+3. Localizes a likely root cause from collected diagnostic evidence.
+4. Produces a candidate patch through a configured Mock, Local, or API model provider.
+5. Tests the candidate in an isolated workspace with compilation, explicit property checks, adversarial checks, and regression tests.
+6. Uses a deterministic patch judge to accept or reject the candidate based on configured checks.
+7. Writes a report bundle under `reports/<finding_id>/` so the decision can be inspected.
+8. Demonstrates a runtime-observation layer through eBPF-related code or an explicitly labelled mock/dry-run mode.
 
-## Architecture
+## Key engineering principles
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **AI is not the final judge.** A model proposal is only a candidate; configured checks determine the reported verdict.
+- **Failures remain visible.** Failed repair attempts are retained within the bounded repair loop rather than silently discarded.
+- **Fallbacks are labelled.** When optional tools such as Z3, AFL++, or runtime eBPF dependencies are unavailable, the project reports the relevant fallback or mock mode.
+- **Evidence is inspectable.** Reports are intended to show the finding, proposed diff, test results, and final decision.
+- **Scope is deliberately limited.** The demo patcher handles the controlled vulnerability pattern; results should not be generalized to arbitrary programs.
 
-## Installation
+## Run locally
 
-**Requirements:** Linux (WSL OK), Python 3.10+, clang with ASan/UBSan
+### Requirements
+
+- Linux or WSL
+- Python 3.10+
+- Clang with AddressSanitizer/UndefinedBehaviorSanitizer support
+- Optional: Z3, AFL++, Node.js/npm, and the relevant eBPF toolchain for those modes
+
+### Setup
 
 ```bash
-git clone <repo>
+git clone https://github.com/armaan10kpro-cmd/astra-crs.git
 cd astra-crs
+
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+python3 scripts/check_env.py
 make build
 ```
 
-Optional: `z3-solver` for Z3 symbolic engine, Node.js for dashboard.
-
-Check environment:
-
-```bash
-python3 scripts/check_env.py
-```
-
-## Quick start
+### Run the demo
 
 ```bash
 make demo
 ```
 
-This runs the full pipeline and writes reports to `reports/`.
+The demo writes run output and reports under `reports/`. For the longer walkthrough and expected artifacts, see [the demo guide](docs/DEMO.md).
 
-## Demo command
-
-```bash
-bash scripts/demo.sh
-# or
-make demo
-```
-
-See [docs/DEMO.md](docs/DEMO.md) for competition walkthrough.
-
-## Dashboard
-
-```bash
-make demo
-make dashboard-export
-cd dashboard && npm install && npm run dev
-```
-
-Dark tactical mission-control UI at http://localhost:5173
-
-## eBPF requirements
-
-Real eBPF mode requires Linux, clang BPF target, and optionally libbpf/bpftool. See [docs/EBPF.md](docs/EBPF.md).
-
-**Fallback:** `--mode mock` uses **DEMO / MOCK MODE** — visibly labelled, never pretends to be kernel enforcement.
-
-## Verification philosophy
-
-See [docs/VERIFICATION.md](docs/VERIFICATION.md).
-
-- Deterministic judge aggregates all verification stages
-- Symbolic engine checks explicit properties (not universal security proof)
-- Adversarial suite attempts to break the repair
-- Failed repair attempts preserved (max 3 iterations)
-
-## Project limitations
-
-- Demo patcher handles the controlled buffer-overflow pattern
-- eBPF layer is observation/policy signaling, not live binary patching
-- AFL++ used only when installed; otherwise deterministic fuzz fallback
-- No scanning of external systems — synthetic target only
-
-## Testing
+### Run tests
 
 ```bash
 make test
 ```
 
+### Launch the dashboard locally
+
+After running the demo and exporting its dashboard data:
+
+```bash
+make dashboard-export
+cd dashboard
+npm install
+npm run dev
+```
+
+The local dashboard runs at `http://localhost:5173` when the development server starts successfully.
+
+## Architecture
+
+| Component | Responsibility |
+|---|---|
+| Discovery | Finds and records the controlled demo issue |
+| Reasoning | Produces a structured candidate patch through the selected provider |
+| Patch workspace | Applies and compiles the candidate in isolation |
+| Verification | Runs configured property, adversarial, and regression checks |
+| Patch judge | Aggregates check results into `FIX_VERIFIED` or `REJECTED` |
+| Evidence reports | Stores artifacts supporting the reported decision |
+| Runtime layer | Demonstrates observation/policy signalling; real eBPF operation depends on the local toolchain |
+| Dashboard | Displays pipeline progress, results, and report evidence |
+
+For the module-level design, see [Architecture](docs/ARCHITECTURE.md).
+
+## Runtime modes and limitations
+
+- The default demo can run with the mock reasoning provider; a live model/API is optional.
+- The symbolic check may use Z3 when installed; otherwise a labelled arithmetic fallback may be used. A fallback result is **not** a universal mathematical proof.
+- eBPF mock/dry-run modes are demonstrations, not kernel enforcement. Real observer operation requires a compatible environment and supporting tools.
+- The runtime layer does not perform arbitrary live-binary patching.
+- ASTRA-CRS is intended for a controlled defensive lab. It does not scan external systems.
+
 ## Documentation
 
-| Doc | Description |
-|-----|-------------|
-| [BUILD_STATUS.md](docs/BUILD_STATUS.md) | Initial assessment |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design |
-| [DEMO.md](docs/DEMO.md) | Demo guide |
-| [EBPF.md](docs/EBPF.md) | Runtime layer |
-| [VERIFICATION.md](docs/VERIFICATION.md) | Verification philosophy |
-| [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues |
-| [PITCH_FACTS.md](docs/PITCH_FACTS.md) | Demonstrable claims only |
-| [FINAL_STATUS.md](docs/FINAL_STATUS.md) | Build completion report |
+- [Architecture](docs/ARCHITECTURE.md)
+- [Demo guide](docs/DEMO.md)
+- [Verification philosophy](docs/VERIFICATION.md)
+- [eBPF requirements and modes](docs/EBPF.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Demonstrable claims and limitations](docs/PITCH_FACTS.md)
+- [Initial build assessment](docs/BUILD_STATUS.md)
 
 ## Safety boundary
 
-Controlled defensive lab only. No exploit payloads against external infrastructure. No credential theft. No false claims of universal eBPF memory rewriting.
+Use the project only in its controlled synthetic lab. Do not point it at systems you do not own or have explicit authorization to test. This repository is a prototype for exploring defensive repair verification, not a production security guarantee.
